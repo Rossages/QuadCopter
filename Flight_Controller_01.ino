@@ -98,20 +98,7 @@ void setup() {
   // beep once per motor to tell you that wach esc has been properlly armed.
   // ====== ARMING Complete ======
 
-    //Arduino (Atmega) pins default to inputs, so they don't need to be explicitly declared as inputs
-  // This is from the data sheet on the
 
-  // ====== Receiver Channels SET Up ======
-  PCICR |= (1 << PCIE0);    // set PCIE0 to enable PCMSK0 scan
-  PCMSK0 |= (1 << PCINT0);  // set PCINT0 (digital input 8) to trigger an interrupt on state change --> Channel 1
-  PCMSK0 |= (1 << PCINT1);  // set PCINT1 (digital input 9)to trigger an interrupt on state change --> Channel 2
-  PCMSK0 |= (1 << PCINT2);  // set PCINT2 (digital input 10)to trigger an interrupt on state change --> Channel 3
-  PCMSK0 |= (1 << PCINT3);  // set PCINT3 (digital input 11)to trigger an interrupt on state change --> Channel 4
-
-  // ADDED these for future use for Channel 5 and 6 --> Can use these for landing sequence or something of a kind.
-  // ***** Refer to Note above.
-  PCMSK0 |= (1 << PCINT4); // set PCINT4 (digital input 12) --> for Channel 5 for SwA --> use for Arming the QuadCopter?
-  PCMSK0 |= (1 << PCINT5); // set PCINT5 (digital input 13) --> for Channel 6 for Sw6 (Three Stage Switch)
 
 
   // === Motors as a Class/object for easy refrencing and checking. ===
@@ -129,6 +116,9 @@ void setup() {
   //int set = 0;
   //int go = 0;
 
+  // Sets up serial rate
+  Serial.begin(9600);
+
 /* To ensure that the arming sequence happens throttle always starts down to up then down. 
 * Ensuring at 0% when arming sequence occurs.
 * Step 1. Throttle fully down 0%
@@ -137,6 +127,36 @@ void setup() {
 * 
 */
 // ========== Initiation sequence ==========
+
+        esc_1 = esc_2 = esc_3= esc_4 = 1000; // Now setting all of the esc into 0% throttle. 
+        
+        for (int j = 0; j <= 3200; j++) { 
+          pulse_width(); // 4 second pulse of 4000us pulses -> i think. This should start the initiation sequence
+        }
+
+        esc_1 = esc_2 = esc_3 = esc_4 = 1050;
+        for (int i = 0; i <= 800; i++) { 
+          pulse_width();              //This should be plenty of time for the esc's to register the signal
+        }
+        
+        esc_1 = esc_2 = esc_4 = esc_3 = 1000; // Now setting all of the esc into 0% throttle for all chanells but throttle.        
+        for (int j = 0; j <= 3200; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
+          pulse_width(); // 4 second pulse of 4000us pulses -> i think. This will hopfully be enough time for the esc's to not loose signal of the "transmitter"
+        }
+
+          // ====== Receiver Channels SET Up ======
+        PCICR |= (1 << PCIE0);    // set PCIE0 to enable PCMSK0 scan
+        PCMSK0 |= (1 << PCINT0);  // set PCINT0 (digital input 8) to trigger an interrupt on state change --> Channel 1
+        PCMSK0 |= (1 << PCINT1);  // set PCINT1 (digital input 9)to trigger an interrupt on state change --> Channel 2
+        PCMSK0 |= (1 << PCINT2);  // set PCINT2 (digital input 10)to trigger an interrupt on state change --> Channel 3
+        PCMSK0 |= (1 << PCINT3);  // set PCINT3 (digital input 11)to trigger an interrupt on state change --> Channel 4
+
+        // ADDED these for future use for Channel 5 and 6 --> Can use these for landing sequence or something of a kind.
+        // ***** Refer to Note above.
+        PCMSK0 |= (1 << PCINT4); // set PCINT4 (digital input 12) --> for Channel 5 for SwA --> use for Arming the QuadCopter?
+        PCMSK0 |= (1 << PCINT5); // set PCINT5 (digital input 13) --> for Channel 6 for Sw6 (Three Stage Switch)
+
+        
 
   //while(go != 1){ 
     //if ((receiver_channel_1 && receiver_channel_2 && receiver_channel_3 && receiver_channel_4) < 1020) { // Meaning each channel is in the Bottom LEft.
@@ -151,57 +171,17 @@ void setup() {
       //if (rdy == 1 && set == 1 && receiver_channel_5 < 1000){ // Channel 5 (SWA in the up position) returns a value of 944->948.
         //go = 1; // Can arm the esc's now and exit loop
         //noInterrupts();
+    //Arduino (Atmega) pins default to inputs, so they don't need to be explicitly declared as inputs
+  // This is from the data sheet on the
 
 
-        // Hopfully disabling interrupts
-        //PCMSK0 &= (0 << PCINT0);
-        //PCMSK0 &= (0 << PCINT1);
-        //PCMSK0 &= (0 << PCINT2);
-        //PCMSK0 &= (0 << PCINT3);
-        
-        esc_1 = esc_2 = esc_3= esc_4 = 1000; // Now setting all of the esc into 0% throttle. 
-        
-        for (int j = 0; j <= 3200; j++) { 
-          pulse_width(); // 4 second pulse of 4000us pulses -> i think. This should start the initiation sequence
-        }
-        
-        esc_1 = esc_2 = esc_3= esc_4 = 1100; // Both sticks are in the of the lower left position
-        
-        for (int i = 0; i <= 1600; i++) { // make 1600 pulses at throttle ~25% (1250). This should last for 2 seconds (1250e-6[s] * 1600 = 2s). 
-          pulse_width();              //This should be plenty of time for the esc's to register the signal
-        }
-
-        esc_1 = esc_2 = esc_3 = esc_4 = 1150; // Raised but not above half way.
-        for (int i = 0; i <= 1000; i++) { 
-          pulse_width();              //This should be plenty of time for the esc's to register the signal
-        }
-
-        esc_1 = esc_2 = esc_3 = esc_4 = 1050;
-        for (int i = 0; i <= 800; i++) { 
-          pulse_width();              //This should be plenty of time for the esc's to register the signal
-        }
-        
-        esc_1 = esc_2 = esc_4 = 1500; // Now setting all of the esc into 50% throttle for all chanells but throttle.
-        esc_3 = 1000; // 0% throttle 
-        
-        for (int j = 0; j <= 3200; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
-          pulse_width(); // 4 second pulse of 4000us pulses -> i think. This will hopfully be enough time for the esc's to not loose signal of the "transmitter"
-        }
-
-        
-        
-        // Re-enable interrupts 
-        //PCMSK0 |= (1 << PCINT0);
-        //PCMSK0 |= (1 << PCINT1);
-        //PCMSK0 |= (1 << PCINT2);
-        //PCMSK0 |= (1 << PCINT3);
 
 
 
         //esc_1 = esc_2 = esc_4 = 1100;
         //esc_3 = 1000; //keep at 1000
         
-
+ 
         //for (int j = 0; j < 1500; j+=100) {
           //for (int i = 0; i <= 20; i++) { 
             //pulse_width();              //This should be plenty of time for the esc's to register the signal
@@ -210,19 +190,12 @@ void setup() {
         //}
 
         // Here should be the spot where if the sticks are left alone the drone should be stationary.
-        
-        
-        
+      
       //interrupts(); // Now the Transmitter has full control over the esc's again
       //}
     //}
   //}
   // ^^^^^ Arming sequence is completed :) ^^^^
-
-  // Sets up serial rate
-  Serial.begin(9600);
-  
-
   
   /* TO DO: *Kill Motors with SWA in Down position
    * *increase Motors speed when you wana fly in a direction.
