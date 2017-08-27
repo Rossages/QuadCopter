@@ -175,9 +175,6 @@ void setup() {
   // This is from the data sheet on the
 
 
-
-
-
         //esc_1 = esc_2 = esc_4 = 1100;
         //esc_3 = 1000; //keep at 1000
         
