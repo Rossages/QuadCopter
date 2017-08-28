@@ -77,7 +77,7 @@ int esc_loop_timer; // to make the pulse, because the time taken for the loop to
 int Mo_1, Mo_2, Mo_3, Mo_4;
 
 bool killed = 0; // To tell if the Motors have been killed. Reinit
-
+bool init_controls = false;
 
 // ====== PROTOTYPES ======
 void pulse_width();
@@ -98,17 +98,6 @@ void setup() {
   // beep once per motor to tell you that wach esc has been properlly armed.
   // ====== ARMING Complete ======
 
-
-
-
-  // === Motors as a Class/object for easy refrencing and checking. ===
-  /*class Motor {
-    public:
-      uint32_t esc_1;
-      uint32_t esc_2;
-      uint32_t esc_3;
-      uint32_t esc_4;
-  };*/
   // =================== Arming the ESC's ==================
 
   // used for Arming the Transmitter and ESC's
@@ -158,15 +147,11 @@ void setup() {
         // ====== Receiver Channels SET Up ======
         //Arduino (Atmega) pins default to inputs, so they don't need to be explicitly declared as inputs
         // This is from the data sheet on the
-        PCICR |= (1 << PCIE0);    // set PCIE0 to enable PCMSK0 scan
-        PCMSK0 |= (1 << PCINT0);  // set PCINT0 (digital input 8) to trigger an interrupt on state change --> Channel 1
-        PCMSK0 |= (1 << PCINT1);  // set PCINT1 (digital input 9)to trigger an interrupt on state change --> Channel 2
-        PCMSK0 |= (1 << PCINT2);  // set PCINT2 (digital input 10)to trigger an interrupt on state change --> Channel 3
-        PCMSK0 |= (1 << PCINT3);  // set PCINT3 (digital input 11)to trigger an interrupt on state change --> Channel 4
-
-
-        
-
+        //PCICR |= (1 << PCIE0);    // set PCIE0 to enable PCMSK0 scan
+        //PCMSK0 |= (1 << PCINT0);  // set PCINT0 (digital input 8) to trigger an interrupt on state change --> Channel 1
+        //PCMSK0 |= (1 << PCINT1);  // set PCINT1 (digital input 9)to trigger an interrupt on state change --> Channel 2
+        //PCMSK0 |= (1 << PCINT2);  // set PCINT2 (digital input 10)to trigger an interrupt on state change --> Channel 3
+        //PCMSK0 |= (1 << PCINT3);  // set PCINT3 (digital input 11)to trigger an interrupt on state change --> Channel 4
 
   // ^^^^^ Arming sequence is completed :) ^^^^
   
@@ -217,7 +202,7 @@ void print_signals() {
 
   Serial.print("  Ch_6 (SWC) :");
   if (receiver_channel_6 < 1000)Serial.print("^^^"); // Channel 6 (SWC in the up position) returns a value of 984->988
-  else if (1000 < receiver_channel_6 < 1600)Serial.print("-+-"); // Channel 6 (SWC in the middle position) returns 1492->1498
+  else if (1000 < receiver_channel_6 && receiver_channel_6 < 1600)Serial.print("-+-"); // Channel 6 (SWC in the middle position) returns 1492->1498
   else Serial.print("vvv"); // Channel 6 (SWC in the down position) returns a value of 1984->1988 ========================= this line doesnt work :( but Mehhhh
   Serial.println(receiver_channel_6);
 
@@ -432,7 +417,7 @@ void flight_controller() {
 // ============ MAIN LOOP ============
 void loop()
 {
-  bool init_controls = false;
+  
   //print_signals(); // Prints each Channels pulse length value to the serial
   //pulse_width(); // produces a pulse for each esc with a value range of 1000 --> 2000 
   flight_controller(); // Control each motor 
@@ -440,7 +425,7 @@ void loop()
   // === Characteristics of SWC ( Three way switch ) ===
   
         
-  if (receiver_channel_6 < 1000){ // UP position
+  /*if (receiver_channel_6 < 1000){ // UP position
     if (receiver_channel_3 < 1030) {
       
     esc_1 = esc_2 = esc_4 = esc_3 = 1000; // Now setting all of the esc into 0% throttle for all chanells but throttle.   
@@ -449,16 +434,17 @@ void loop()
    }
     }
 
-  } else if (1000 < receiver_channel_6 < 1600) { // in the Midle position
+  } else if (1000 < receiver_channel_6) { // in the Midle position
+    if (receiver_channel_6 < 1600) {
     // NO LEVELING  MODE --> Self leveling OFF
     //K = Kp = Ki = 0
     
-   esc_1 = esc_2 = esc_4 = esc_3 = 1000; // Now setting all of the esc into 0% throttle for all chanells but throttle.   
-   for (int j = 0; j <= 200; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
-      pulse_width(); // 0.25 second pulse of 1000us pulses -> i think. 
-   }
-   
-  } else if (receiver_channel_6 > 1800) { // In the Down position
+        esc_1 = esc_2 = esc_4 = esc_3 = 1000; // Now setting all of the esc into 0% throttle for all chanells but throttle.   
+        for (int j = 0; j <= 200; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
+            pulse_width(); // 0.25 second pulse of 1000us pulses -> i think. 
+        }
+    }*/
+  if (receiver_channel_6 > 1800) { // In the Down position
         if (!init_controls) {
           
     // ====== Receiver Channels SET Up ======
