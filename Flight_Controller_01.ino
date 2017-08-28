@@ -126,7 +126,15 @@ void setup() {
 * Step 3. Fully down to complete arming, and Starts up in ~0% throttle.
 * 
 */
+
+   // ADDED these for future use for Channel 5 and 6 --> Can use these for landing sequence or something of a kind.
+   // ***** Refer to Note above.
+   PCMSK0 |= (1 << PCINT4); // set PCINT4 (digital input 12) --> for Channel 5 for SwA --> use for Arming the QuadCopter?
+   PCMSK0 |= (1 << PCINT5); // set PCINT5 (digital input 13) --> for Channel 6 for Sw6 (Three Stage Switch)
+
+        
 // ========== Initiation sequence ==========
+
 
         esc_1 = esc_2 = esc_3= esc_4 = 1000; // Now setting all of the esc into 0% throttle. 
         
@@ -138,60 +146,28 @@ void setup() {
         for (int i = 0; i <= 800; i++) { 
           pulse_width();              //This should be plenty of time for the esc's to register the signal
         }
-        
-        esc_1 = esc_2 = esc_4 = esc_3 = 1000; // Now setting all of the esc into 0% throttle for all chanells but throttle.        
+
+        esc_1 = esc_2 = esc_4 = esc_3 = 1000; // Now setting all of the esc into 0% throttle for all chanells but throttle.   
         for (int j = 0; j <= 3200; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
           pulse_width(); // 4 second pulse of 4000us pulses -> i think. This will hopfully be enough time for the esc's to not loose signal of the "transmitter"
         }
+        
+// to arm the Quad. Start SwA in UP pos. Then down. Then up to allow control to controller and reveceier.
 
-          // ====== Receiver Channels SET Up ======
+
+        // ====== Receiver Channels SET Up ======
+        //Arduino (Atmega) pins default to inputs, so they don't need to be explicitly declared as inputs
+        // This is from the data sheet on the
         PCICR |= (1 << PCIE0);    // set PCIE0 to enable PCMSK0 scan
         PCMSK0 |= (1 << PCINT0);  // set PCINT0 (digital input 8) to trigger an interrupt on state change --> Channel 1
         PCMSK0 |= (1 << PCINT1);  // set PCINT1 (digital input 9)to trigger an interrupt on state change --> Channel 2
         PCMSK0 |= (1 << PCINT2);  // set PCINT2 (digital input 10)to trigger an interrupt on state change --> Channel 3
         PCMSK0 |= (1 << PCINT3);  // set PCINT3 (digital input 11)to trigger an interrupt on state change --> Channel 4
 
-        // ADDED these for future use for Channel 5 and 6 --> Can use these for landing sequence or something of a kind.
-        // ***** Refer to Note above.
-        PCMSK0 |= (1 << PCINT4); // set PCINT4 (digital input 12) --> for Channel 5 for SwA --> use for Arming the QuadCopter?
-        PCMSK0 |= (1 << PCINT5); // set PCINT5 (digital input 13) --> for Channel 6 for Sw6 (Three Stage Switch)
 
         
 
-  //while(go != 1){ 
-    //if ((receiver_channel_1 && receiver_channel_2 && receiver_channel_3 && receiver_channel_4) < 1020) { // Meaning each channel is in the Bottom LEft.
-      //  rdy = 1;                                                             // ie. NO throttle on any channel
-    //} 
 
-    // Step 2. Now Move Main throttel to 100%
-    //if ((receiver_channel_1 && receiver_channel_2 && receiver_channel_3 && receiver_channel_4) > 1980){
-      //set = 1;
-
-      // Must have been in the down position then up to get through here
-      //if (rdy == 1 && set == 1 && receiver_channel_5 < 1000){ // Channel 5 (SWA in the up position) returns a value of 944->948.
-        //go = 1; // Can arm the esc's now and exit loop
-        //noInterrupts();
-    //Arduino (Atmega) pins default to inputs, so they don't need to be explicitly declared as inputs
-  // This is from the data sheet on the
-
-
-        //esc_1 = esc_2 = esc_4 = 1100;
-        //esc_3 = 1000; //keep at 1000
-        
- 
-        //for (int j = 0; j < 1500; j+=100) {
-          //for (int i = 0; i <= 20; i++) { 
-            //pulse_width();              //This should be plenty of time for the esc's to register the signal
-            //esc_1 = esc_2 = esc_4 += 100;
-          //}
-        //}
-
-        // Here should be the spot where if the sticks are left alone the drone should be stationary.
-      
-      //interrupts(); // Now the Transmitter has full control over the esc's again
-      //}
-    //}
-  //}
   // ^^^^^ Arming sequence is completed :) ^^^^
   
   /* TO DO: *Kill Motors with SWA in Down position
@@ -456,26 +432,47 @@ void flight_controller() {
 // ============ MAIN LOOP ============
 void loop()
 {
-
+  bool init_controls = false;
   //print_signals(); // Prints each Channels pulse length value to the serial
   //pulse_width(); // produces a pulse for each esc with a value range of 1000 --> 2000 
   flight_controller(); // Control each motor 
-
-
   
   // === Characteristics of SWC ( Three way switch ) ===
   
-  /*if (receiver_channel_6 < 1000){ // UP position
+        
+  if (receiver_channel_6 < 1000){ // UP position
     if (receiver_channel_3 < 1030) {
-      esc_1 = esc_2 = esc_3 = esc_4 = 1200; // HAVE TO TEST THIS OUT WITH PROPS ON. WANT THE MOTORS TO BE JUST SPINNING.
+      
+    esc_1 = esc_2 = esc_4 = esc_3 = 1000; // Now setting all of the esc into 0% throttle for all chanells but throttle.   
+   for (int j = 0; j <= 200; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
+      pulse_width(); // 0.25 second pulse of 1000us pulses -> i think. 
+   }
     }
-  } else if (1000 < receiver_input_channel_6 < 1600) { // in the Midle position
-    // PRO MODE --> Self leveling OFF
+
+  } else if (1000 < receiver_channel_6 < 1600) { // in the Midle position
+    // NO LEVELING  MODE --> Self leveling OFF
     //K = Kp = Ki = 0
     
-  } else if (receiver_input_channel_6 > 1800) { // In the Down position
-    // self leveling Mode
-  }*/
+   esc_1 = esc_2 = esc_4 = esc_3 = 1000; // Now setting all of the esc into 0% throttle for all chanells but throttle.   
+   for (int j = 0; j <= 200; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
+      pulse_width(); // 0.25 second pulse of 1000us pulses -> i think. 
+   }
+   
+  } else if (receiver_channel_6 > 1800) { // In the Down position
+        if (!init_controls) {
+          
+    // ====== Receiver Channels SET Up ======
+        //Arduino (Atmega) pins default to inputs, so they don't need to be explicitly declared as inputs
+        // This is from the data sheet on the
+        PCICR |= (1 << PCIE0);    // set PCIE0 to enable PCMSK0 scan
+        PCMSK0 |= (1 << PCINT0);  // set PCINT0 (digital input 8) to trigger an interrupt on state change --> Channel 1
+        PCMSK0 |= (1 << PCINT1);  // set PCINT1 (digital input 9)to trigger an interrupt on state change --> Channel 2
+        PCMSK0 |= (1 << PCINT2);  // set PCINT2 (digital input 10)to trigger an interrupt on state change --> Channel 3
+        PCMSK0 |= (1 << PCINT3);  // set PCINT3 (digital input 11)to trigger an interrupt on state change --> Channel 4
+        init_controls = true;
+        }
+  }
+  
 
   // === Characteristics of SWA ( two way switch ) ===
   // ** TODO: When switch is in up position will also need to take into account what the gyro says!!!!
