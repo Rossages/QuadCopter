@@ -398,16 +398,6 @@ void loop()
 
   if (receiver_channel_5 > 1800) { // Down positon --> ****** Kill Motors 0% ******
     
-    /*noInterrupts();
-    esc_1 = esc_2 = esc_3 = esc_4 = 1000;
-    for (int j = 0; j <= 800 && !esc_1 == 0; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
-      esc_1 = esc_2 = esc_3 = esc_4 -= 10;
-            pulse_width(); // 1 second pulse of 1000us pulses -> i think. 
-        }
-   interrupts(); // ! ! ! This is not re-enabling interrupts at the moment.. -> But kills the motors when switch is flicked.
-   */
-
-    //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while waiting for the receiver inputs.
     PCICR &= B00001111;         // Disables inturrupts on receiver channels - Pins 8, 9, 10,11
     killed = 1;
     while (receiver_channel_5 > 1800) {                                         // The 980us is because th delay function takes time to excecute. so the 980us == 1000us theoretically.
@@ -422,4 +412,7 @@ void loop()
   }
  
 }
+
+
+
 
