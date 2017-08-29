@@ -104,7 +104,6 @@ void setup() {
   Serial.begin(9600);
   
     esc_1 = esc_2 = esc_3= esc_4 = 1000; // Now setting all of the esc into 0% throttle. 
-    
     for (int j = 0; j <= 3200; j++) { 
       pulse_width(); // 4 second pulse of 4000us pulses -> i think. This should start the initiation sequence
     }
@@ -255,16 +254,6 @@ ISR(PCINT0_vect) {
     receiver_channel_6 = micros() - timer_6;
   }
 
-  /*
-  // The limits of Channel 3 and 4 dont work properlly is limited to 1012 to 1990 ish... 
-  // We need the 1000 and 2000 limits for the throttle calibration for the motors. 
-  // NOTE: Can potentially get rid of this Once calibrated.
-  if (receiver_input_channel_3 > 1990)receiver_input_channel_3 = 2000; 
-  if (receiver_input_channel_4 > 1990)receiver_input_channel_4 = 2000;
-
-  if (receiver_input_channel_3 <1020)receiver_input_channel_3 = 1000;
-  if (receiver_input_channel_4 < 1020)receiver_input_channel_4 = 1000;
-  */
   
   // assinging the input from receiver Code for each motor as to keep variable names consistent
   // for pulsewidth() code.
@@ -307,11 +296,12 @@ void flight_controller() {
   esc_2 = receiver_channel_3;
   esc_3 = receiver_channel_3;
   esc_4 = receiver_channel_3;
-  /*
+  
   // === PITCH ===
   cor_esc_2 = receiver_channel_2 - 1500; // centre point of channel 2; + forward, - backwards
   
   if (cor_esc_2 > 0) { // The stick is pushed forward, ch2 value will increase pushing more power to the motors 1 and 3
+    
     esc_1 += cor_esc_2;
     esc_3 += cor_esc_2;
   
@@ -329,7 +319,7 @@ void flight_controller() {
     esc_4 -= cor_esc_2;
     }
   }
-
+/*
   // === ROLL ===
   cor_esc_1 = receiver_channel_1 - 1500; // centre point of channel 1; - left roll, + right roll
 
@@ -387,11 +377,11 @@ void flight_controller() {
   if (esc_4 > 1800)esc_4 = 1800;
 
   // When throttle is at zero all motors stay at zero.
-  //if (esc_1 < 1010)esc_1 = 1000;
-  //if (esc_2 > 1010)esc_2 = 1000;
-  //if (esc_3 > 1010)esc_3 = 1000;
-  //if (esc_4 > 1010)esc_4 = 1000;
-
+  if (esc_1 < 1030)esc_1 = 1030;
+  if (esc_2 < 1030)esc_2 = 1030;
+  if (esc_3 < 1030)esc_3 = 1030;
+  if (esc_4 < 1030)esc_4 = 1030;
+  
   pulse_width();
 }
 
@@ -402,54 +392,34 @@ void loop()
   //print_signals(); // Prints each Channels pulse length value to the serial
   //pulse_width(); // produces a pulse for each esc with a value range of 1000 --> 2000 
   flight_controller(); // Control each motor 
-  
-  // === Characteristics of SWC ( Three way switch ) ===
-   /*if (receiver_channel_6 < 1000){ // UP position
-    if (receiver_channel_3 < 1030) {
-      
-    }
-
-  } else if (1000 < receiver_channel_6) { // in the Midle position
-    if (receiver_channel_6 < 1600) {
-    // NO LEVELING  MODE --> Self leveling OFF
-    //K = Kp = Ki = 0
-    
-        
-    }
-  } else if (receiver_channel_6 > 1800) {
-    // Down positon
-    noInterrupts();
-    esc_1 = esc_2 = esc_4 = esc_3 = 1000; // Now setting all of the esc into 0% throttle for all chanells but throttle.   
-        for (int j = 0; j <= 800; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
-            pulse_width(); // 1 second pulse of 1000us pulses -> i think. 
-        }
-    interrupts();
-  }*/
-        
+ 
 
   // === Characteristics of SWA ( two way switch ) ===
-  // ** TODO: When switch is in up position will also need to take into account what the gyro says!!!!
-  
-  if (receiver_channel_5 < 1000) {  // Up position --> Full control to the Transmitter :) YEY 
-    if (killed = 1) {
-
-      killed = 0;
-    }
-  }
 
   if (receiver_channel_5 > 1800) { // Down positon --> ****** Kill Motors 0% ******
     
-    noInterrupts();
+    /*noInterrupts();
     esc_1 = esc_2 = esc_3 = esc_4 = 1000;
-    for (int j = 0; j <= 800; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
+    for (int j = 0; j <= 800 && !esc_1 == 0; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
+      esc_1 = esc_2 = esc_3 = esc_4 -= 10;
             pulse_width(); // 1 second pulse of 1000us pulses -> i think. 
         }
-   interrupts();
-    killed = 1; // So that we know that the receiver has been cut and we know when to re-enable them
+   interrupts(); // ! ! ! This is not re-enabling interrupts at the moment.. -> But kills the motors when switch is flicked.
+   */
+
+    //We don't want the esc's to be beeping annoyingly. So let's give them a 1000us puls while waiting for the receiver inputs.
+    PCICR &= B00001111;         // Disables inturrupts on receiver channels - Pins 8, 9, 10,11
+    killed = 1;
+    while (receiver_channel_5 > 1800) {                                         // The 980us is because th delay function takes time to excecute. so the 980us == 1000us theoretically.
+        PORTD |= B11110000;                                                     //Set digital poort 4, 5, 6 and 7 high.
+        delayMicroseconds(980);                                                //Wait 980us. -> should be enough to keep the esc's tunred on, But keep motors off.
+        PORTD &= B00001111;                                                     //Set digital poort 4, 5, 6 and 7 low.
+        delay(3);                                                                //Wait 3ms before the next loop.
+    }
     
+    PCICR |= B11110000;         // Enables inturrupts on receiver channels - Pins 8, 9, 10,11
+    killed = 0;
   }
-} 
-
-
-
+ 
+}
 
