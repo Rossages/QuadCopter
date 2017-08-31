@@ -76,7 +76,7 @@ int esc_loop_timer; // to make the pulse, because the time taken for the loop to
 // The pulse width value directly to the ESC's
 int Mo_1, Mo_2, Mo_3, Mo_4;
 
-bool killed = 0; // To tell if the Motors have been killed. Reinit
+bool killed = 0; // To tell if the Motors have been killed. Re-init
 bool init_controls = false;
 
 // ====== PROTOTYPES ======
@@ -300,23 +300,25 @@ void flight_controller() {
   // === PITCH ===
   cor_esc_2 = receiver_channel_2 - 1500; // centre point of channel 2; + forward, - backwards
   
-  if (cor_esc_2 > 0) { // The stick is pushed forward, ch2 value will increase pushing more power to the motors 1 and 3
-    
+  if (cor_esc_2 > 5) { // The stick is pushed forward, ch2 value will increase pushing more power to the motors 1 and 3
+      // 5 is to allow the motors a margin of error. The transmitter fluctuates +-4us so margin of error +-5us
+      // This makes the idle/motor warm up more stable.
     esc_1 += cor_esc_2;
     esc_3 += cor_esc_2;
   
-    if (esc_1 || esc_3 > 1800) { //if they greater then the limit, decrease as to not over power
-      esc_1 -= (2*cor_esc_2); // Because we just added cor_esc_2 to esc_1. So need to take off from the OG value.
-      esc_3 -= (2*cor_esc_2);
+    if (esc_1 || esc_3 >= 1800) { //if they greater then the limit of 80% power, decrease opposite side
+      esc_2 -= cor_esc_2; 
+      esc_4 -= cor_esc_2;
     }
     
-  } else if (cor_esc_2 < 0) {
-    esc_2 += cor_esc_2;
-    esc_4 += cor_esc_2;
+  } 
+  if (cor_esc_2 < -5) {
+    esc_2 += abs(cor_esc_2);
+    esc_4 += abs(cor_esc_2);
   
-  if (esc_2 || esc_4 > 1800) { // Restrict the Motors to 80% power
-    esc_2 -= 2*cor_esc_2;
-    esc_4 -= 2*cor_esc_2;
+  if (esc_2 || esc_4 >= 1800) { // Restrict the Motors to 80% power
+    esc_1 -= abs(cor_esc_2);
+    esc_3 -= abs(cor_esc_2);
     }
   }
 /*
@@ -324,6 +326,7 @@ void flight_controller() {
   cor_esc_1 = receiver_channel_1 - 1500; // centre point of channel 1; - left roll, + right roll
 
   if (cor_esc_1 > 0) { // Right pos --> Roll Right --> more power into motor 3 & 4
+    
     esc_3 += cor_esc_1; // adding to motor.
     esc_4 += cor_esc_1; 
 
@@ -370,13 +373,13 @@ void flight_controller() {
   */
 
 
-  // LIMIT the Motors to 80% of their speed capacity. so I dont wear them out.
+  // LIMIT the Motors to 80% of their speed capacity. s\]So I dont wear them out too quickly.
   if (esc_1 > 1800)esc_1 = 1800;
   if (esc_2 > 1800)esc_2 = 1800;
   if (esc_3 > 1800)esc_3 = 1800;
   if (esc_4 > 1800)esc_4 = 1800;
 
-  // When throttle is at zero all motors stay at zero.
+  // When throttle is at zero all motors staying warm.
   if (esc_1 < 1030)esc_1 = 1030;
   if (esc_2 < 1030)esc_2 = 1030;
   if (esc_3 < 1030)esc_3 = 1030;
