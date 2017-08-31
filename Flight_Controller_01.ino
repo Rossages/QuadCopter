@@ -306,17 +306,17 @@ void flight_controller() {
     esc_3 += cor_esc_2;
   
     if (esc_1 || esc_3 > 1800) { //if they greater then the limit, decrease as to not over power
-      esc_1 -= (2*cor_esc_2); // Because we just added cor_esc_2 to esc_1. So need to take off from og value.
+      esc_1 -= (2*cor_esc_2); // Because we just added cor_esc_2 to esc_1. So need to take off from the OG value.
       esc_3 -= (2*cor_esc_2);
     }
     
-  } else if (cor_esc_1 < 0) {
+  } else if (cor_esc_2 < 0) {
     esc_2 += cor_esc_2;
     esc_4 += cor_esc_2;
   
   if (esc_2 || esc_4 > 1800) { // Restrict the Motors to 80% power
-    esc_2 -= cor_esc_2;
-    esc_4 -= cor_esc_2;
+    esc_2 -= 2*cor_esc_2;
+    esc_4 -= 2*cor_esc_2;
     }
   }
 /*
@@ -328,8 +328,8 @@ void flight_controller() {
     esc_4 += cor_esc_1; 
 
     if (esc_3 || esc_4 > 1800) {
-      esc_3 -= cor_esc_1;
-      esc_4 -= cor_esc_1;
+      esc_3 -= 2*cor_esc_1; // If cor_esc_>0 then we already adding to it. So if we *2 then
+      esc_4 -= 2*cor_esc_1; // this allows me to have less conditions while acheiving the same thing.
     }
     
   } else if (cor_esc_1 < 0) { //left Roll
@@ -337,8 +337,8 @@ void flight_controller() {
     esc_4 += cor_esc_1;
   
   if ( esc_3 || esc_4 > 1800){ // Restrict the Motors to 80% power
-    esc_3 -= cor_esc_1;
-    esc_4 -= cor_esc_1;
+    esc_3 -= 2*cor_esc_1;
+    esc_4 -= 2*cor_esc_1;
     }
   }
 
@@ -398,7 +398,7 @@ void loop()
 
   if (receiver_channel_5 > 1800) { // Down positon --> ****** Kill Motors 0% ******
     
-    PCICR &= B00001111;         // Disables inturrupts on receiver channels - Pins 8, 9, 10,11
+    PCICR &= B00001111;                                                         // Disables inturrupts on receiver channels - Pins 8, 9, 10,11
     killed = 1;
     while (receiver_channel_5 > 1800) {                                         // The 980us is because th delay function takes time to excecute. so the 980us == 1000us theoretically.
         PORTD |= B11110000;                                                     //Set digital poort 4, 5, 6 and 7 high.
