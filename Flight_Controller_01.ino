@@ -303,45 +303,44 @@ void flight_controller() {
   if (cor_esc_2 > 5) { // The stick is pushed forward, ch2 value will increase pushing more power to the motors 1 and 3
       // 5 is to allow the motors a margin of error. The transmitter fluctuates +-4us so margin of error +-5us
       // This makes the idle/motor warm up more stable.
-    esc_1 += cor_esc_2;
-    esc_3 += cor_esc_2;
+    esc_2 += cor_esc_2;
+    esc_4 += cor_esc_2;
   
     if (esc_1 || esc_3 >= 1800) { //if they greater then the limit of 80% power, decrease opposite side
-      esc_2 -= cor_esc_2; 
-      esc_4 -= cor_esc_2;
+      esc_1 -= cor_esc_2; 
+      esc_3 -= cor_esc_2;
     }
     
-  } 
-  if (cor_esc_2 < -5) {
-    esc_2 += abs(cor_esc_2);
-    esc_4 += abs(cor_esc_2);
+  } else if (cor_esc_2 < -5) {
+    esc_1 += abs(cor_esc_2);
+    esc_3 += abs(cor_esc_2);
   
   if (esc_2 || esc_4 >= 1800) { // Restrict the Motors to 80% power
-    esc_1 -= abs(cor_esc_2);
-    esc_3 -= abs(cor_esc_2);
+    esc_2 -= abs(cor_esc_2);
+    esc_4 -= abs(cor_esc_2);
     }
   }
-/*
+
   // === ROLL ===
   cor_esc_1 = receiver_channel_1 - 1500; // centre point of channel 1; - left roll, + right roll
 
-  if (cor_esc_1 > 0) { // Right pos --> Roll Right --> more power into motor 3 & 4
+  if (cor_esc_1 > 5) { // Right pos --> Roll Right --> more power into motor 3 & 4
     
     esc_3 += cor_esc_1; // adding to motor.
     esc_4 += cor_esc_1; 
 
     if (esc_3 || esc_4 > 1800) {
-      esc_3 -= 2*cor_esc_1; // If cor_esc_>0 then we already adding to it. So if we *2 then
-      esc_4 -= 2*cor_esc_1; // this allows me to have less conditions while acheiving the same thing.
+      esc_1 -= cor_esc_1; // If cor_esc_>0 then we already adding to it. So if we *2 then
+      esc_2 -= cor_esc_1; // this allows me to have less conditions while acheiving the same thing.
     }
     
-  } else if (cor_esc_1 < 0) { //left Roll
-    esc_3 += cor_esc_1;
-    esc_4 += cor_esc_1;
+  } else if (cor_esc_1 < -5) { //left Roll
+    esc_1 += abs(cor_esc_1);
+    esc_2 += abs(cor_esc_1);
   
   if ( esc_3 || esc_4 > 1800){ // Restrict the Motors to 80% power
-    esc_3 -= 2*cor_esc_1;
-    esc_4 -= 2*cor_esc_1;
+    esc_3 -= abs(cor_esc_1);
+    esc_4 -= abs(cor_esc_1);
     }
   }
 
@@ -354,23 +353,23 @@ void flight_controller() {
 
     
     if ( esc_2 || esc_2 > 1800){
-      esc_2 -= cor_esc_4;
-      esc_3 -= cor_esc_4;
+      esc_1 -= cor_esc_4;
+      esc_4 -= cor_esc_4;
     }
   
-  } else {
-    esc_1 += cor_esc_4; //*** CHECK THESE DIRECTIONS CANT REMEMBER WHAT WAY MOTORS ROTATE - ATM assuming motors 2 and 3 rotate CCW
-    esc_4 += cor_esc_4; //*** CHECK THESE DIRECTIONS CANT REMEMBER WHAT WAY MOTORS ROTATE
+  } else if (cor_esc_4 < 0) {
+    esc_1 += abs(cor_esc_4); //*** CHECK THESE DIRECTIONS CANT REMEMBER WHAT WAY MOTORS ROTATE - ATM assuming motors 2 and 3 rotate CCW
+    esc_4 += abs(cor_esc_4); //*** CHECK THESE DIRECTIONS CANT REMEMBER WHAT WAY MOTORS ROTATE
 
     
     if ( esc_1 || esc_4 > 1800){
-      esc_1 -= cor_esc_4;
-      esc_4 -= cor_esc_4;
+      esc_2 -= abs(cor_esc_4);
+      esc_3 -= abs(cor_esc_4);
     }
   }
 
   // if esc_# is over 1800 then rather then + to the esc value, we should -.
-  */
+  
 
 
   // LIMIT the Motors to 80% of their speed capacity. s\]So I dont wear them out too quickly.
