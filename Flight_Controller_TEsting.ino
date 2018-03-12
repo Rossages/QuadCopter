@@ -1,6 +1,6 @@
 /* 
    
-   Date: 15 November 2017
+   Date: 26th Feb 2017
    Ross Oliver
 
    
@@ -38,8 +38,51 @@
 
 */
 
+// ================= Includes for Gyro ======================
 
-// ====== Declaring Variables ==========
+//#include "Gyro_Accel_Basic.h"
+
+// I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
+// for both classes must be in the include path of your project
+#include "I2Cdev.h"
+
+#include "MPU6050_6Axis_MotionApps20.h"
+
+#include <stdbool.h>
+// Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation
+// is used in I2Cdev.h
+#if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+    #include "Wire.h"
+#endif
+
+// class default I2C address is 0x68
+// specific I2C addresses may be passed as a parameter here
+// AD0 low = 0x68 (default for SparkFun breakout and InvenSense evaluation board)
+// AD0 high = 0x69
+MPU6050 mpu;
+//MPU6050 mpu(0x69); // <-- use for AD0 high
+
+// uncomment "OUTPUT_READABLE_YAWPITCHROLL" if you want to see the yaw/
+// pitch/roll angles (in degrees) calculated from the quaternions coming
+// from the FIFO. Note this also requires gravity vector calculations.
+// Also note that yaw/pitch/roll angles suffer from gimbal lock (for
+// more info, see: http://en.wikipedia.org/wiki/Gimbal_lock)
+#define OUTPUT_READABLE_YAWPITCHROLL
+
+#define LED_PIN 13 // (Arduino is 13) ************ CANT USE THIS PIN ALREADY TAKEN ********
+bool blinkState = false;
+
+// MPU control/status vars
+bool dmpReady = false;  // set true if DMP init was successful
+uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
+uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
+uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
+uint16_t fifoCount;     // count of all bytes currently in FIFO
+uint8_t fifoBuffer[64]; // FIFO storage buffer
+#define BUF_SIZE 60
+//static circBuf_t g_inBuffer;
+
+// ========== Declaring Variables ==============
 
 // === Variables for the Transmitter and Receiver ===
 // As to work out the time period that the Duty cycle is high for, for each channel. --> Either HIGH | LOW
@@ -56,13 +99,8 @@ uint32_t timer_1, timer_2, timer_3, timer_4, timer_5, timer_6;
 // Stores the Trasmitter value to keep everything contant
 uint32_t esc_1, esc_2, esc_3, esc_4;
 
-// === Flight controller variables ===
-// Corrected value for the ESC's --> ATM only translate the actions of the controller to actual flight for each motor.
-int cor_esc_1, cor_esc_2, cor_esc_3, cor_esc_4;
 
 // ====== Scalars / OffSets for Receiver =======
-int pos_dir = 1480; // Positive Direction
-int neg_dir = 1520; // Negative direction
 int loop_timer;   // to get an accurate pulse length we need how how long it takes 
 int esc_loop_timer; // to make the pulse, because the time taken for the loop to run may changed slightly.
 
@@ -75,20 +113,15 @@ int esc_loop_timer; // to make the pulse, because the time taken for the loop to
 // The pulse width value directly to the ESC's
 int Mo_1, Mo_2, Mo_3, Mo_4;
 
-bool killed = 0; // To tell if the Motors have been killed. Re-init
-int Rearm; // Check to see if the motors can actually be reamred. - will be smushed between disable and enable intrupts.
+bool MotorsKilled = 0; // To tell if the Motors have been killed. Re-init
+int Rearm = 0; // Check to see if the motors can actually be reamred. - will be smushed between disable and enable intrupts.
 bool init_controls = false;
-int throttle_limit = 1600; // 60%
+uint32_t throttle_limit = 1600; // 60%
 
 // ====== PROTOTYPES ======
 void pulse_width();
 
-// ================== SETUP ==================
-void setup() {
-  // Setting up the for each motor, and inputs from receiver.
-
-  // MOTOR Setup as OUTPUTS :)
-  DDRD |= B11110000;    //Configure digital port 4, 5, 6 and 7 as output.
+void ArmEscs() {
 
   // ====== Arming of ESC's ========
   // ** Connect the battery to ESC. then make sure that when you turn on the controller
@@ -98,11 +131,6 @@ void setup() {
   // When both (esc and transmitter) are turned on, put the sticks on the zero position and should 
   // beep once per motor to tell you that wach esc has been properlly armed.
   // ====== ARMING Complete ======
-
-  // =================== Arming the ESC's ==================
-
-  // Sets up serial rate
-  Serial.begin(9600);
   
     esc_1 = esc_2 = esc_3= esc_4 = 1000; // Now setting all of the esc into 0% throttle. 
     for (int j = 0; j <= 3200; j++) { 
@@ -118,6 +146,23 @@ void setup() {
     for (int j = 0; j <= 3200; j++) { // This should complete the Arming of the ESC's, now that the throttle is back to zero. 
       pulse_width(); // 4 second pulse of 4000us pulses -> i think. This will hopfully be enough time for the esc's to not loose signal of the "transmitter"
     }
+}
+
+// ================== SETUP ==================
+void setup() {
+  // Setting up the for each motor, and inputs from receiver.
+
+  // MOTOR Setup as OUTPUTS :)
+  DDRD |= B11110000;    //Configure digital port 4, 5, 6 and 7 as output.
+
+
+  // =================== Arming the ESC's ==================
+  ArmEscs();
+  
+  // Sets up serial rate
+  Serial.begin(9600);
+  
+
         
 // to arm the Quad. Start SwA in UP pos. Then down. Then up to allow control to controller and reveceier.
 
@@ -132,7 +177,7 @@ void setup() {
    PCMSK0 |= (1 << PCINT3);  // set PCINT3 (digital input 11)to trigger an interrupt on state change --> Channel 4
    // ADDED these for future use for Channel 5 and 6 --> Can use these for landing sequence or something of a kind.
    // ***** Refer to Note above.
-   PCMSK0 |= (1 << PCINT4); // set PCINT4 (digital input 12) --> for Channel 5 for SwA --> use for Arming the QuadCopter?
+   PCMSK0 |= (1 << PCINT4); // set PCINT4 (digital input 12) --> for Channel 5 for SwA --> use for Arming the QuadCopter
    PCMSK0 |= (1 << PCINT5); // set PCINT5 (digital input 13) --> for Channel 6 for Sw6 (Three Stage Switch)
 
   
@@ -145,7 +190,70 @@ void setup() {
    *    Battery Voltage display??
    *    Warm up Motors? - currently 1030  THis will probably need to be much higher 
   */
-  
+
+  // join I2C bus (I2Cdev library doesn't do this automatically)
+    
+    /* #if checks whether the value is true (in the C and C++ sense of everything but 0) 
+    and if so, includes the code until the closing #endif. 
+    if not, that code is removed from the copy of the file given to the compiler prior 
+    to compilation (but it has no effect on the original source code file). */
+    
+    #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+        Wire.begin();
+        TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
+    #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
+        Fastwire::setup(400, true);
+    #endif
+    
+    // TODO: CHANGE SERIAL TO 9600 WHEN I MERGE THIS WITH FLIGHT_CONTROLLER_01
+    //Serial.begin(115200);
+
+    // initialize device
+    Serial.println(F("Initializing I2C for mpu6050..."));
+    mpu.initialize();
+
+    // verify connection
+    Serial.println(mpu.testConnection() ? F("MPU6050 connection successful") : F("MPU6050 connection failed"));
+
+    // load and configure the DMP
+    devStatus = mpu.dmpInitialize();
+
+    // supply your own gyro offsets here, scaled for min sensitivity
+    mpu.setXGyroOffset(0); //was 220
+    mpu.setYGyroOffset(0); // was 76
+    mpu.setZGyroOffset(0); // was -85
+    mpu.setZAccelOffset(1688); // 1688 factory default for my test chip //was 1788
+
+    // make sure it worked (returns 0 if so)
+    if (devStatus == 0) {
+        // turn on the DMP, now that it's ready
+        Serial.println(F("Enabling DMP..."));
+        mpu.setDMPEnabled(true);
+
+        // enable Arduino interrupt detection
+        Serial.println(F("Enabling interrupt detection (Arduino external interrupt 0)..."));
+        attachInterrupt(0, dmpDataReady, RISING);
+        mpuIntStatus = mpu.getIntStatus();
+
+        // set our DMP Ready flag so the main loop() function knows it's okay to use it
+        Serial.println(F("DMP ready! Waiting for first interrupt..."));
+        dmpReady = true;
+
+        // get expected DMP packet size for later comparison
+        packetSize = mpu.dmpGetFIFOPacketSize();
+    } else {
+        // ERROR!
+        // 1 = initial memory load failed
+        // 2 = DMP configuration updates failed
+        // (if it's going to break, usually the code will be 1)
+        Serial.print(F("DMP Initialization failed (code "));
+        Serial.print(devStatus);
+        Serial.println(F(")"));
+    }
+
+    // configure LED for output
+    pinMode(LED_PIN, OUTPUT);
+    
 }
 
 //This routine is called every time input 8, 9, 10 or 11 changed state
@@ -213,20 +321,12 @@ ISR(PCINT0_vect) {
     prev_chan_6 = 0;
     receiver_channel_6 = micros() - timer_6;
   }
-
-  
-  // assinging the input from receiver Code for each motor as to keep variable names consistent
-  // for pulsewidth() code.
-  esc_1 = receiver_channel_1;
-  esc_2 = receiver_channel_2;
-  esc_3 = receiver_channel_3;
-  esc_4 = receiver_channel_4; 
 }
 
 // ========== PULSE WIDTH ============
 void pulse_width(){
   // This produces the pulse that is sent to it. Ideally 1000us to 2000us and sends it to the ESC's
-
+  // Note: dont make this atomic. because i think it disables the ability to use bitmask.
   
   loop_timer = micros();            //Set the timer for the next loop.
 
@@ -236,26 +336,43 @@ void pulse_width(){
   Mo_3 = esc_3 + loop_timer;               //Calculate the time of the faling edge of the esc-3 pulse.
   Mo_4 = esc_4 + loop_timer;               //Calculate the time of the faling edge of the esc-4 pulse.
 
+
   while (PORTD >= 16) {                    //Stay in this loop until output 4,5,6 and 7 are low.
-    esc_loop_timer = micros();                 //Read the current time.
+    esc_loop_timer = micros();              //Read the current time.
     if(Mo_1 <= esc_loop_timer)PORTD &= B11101111;    //Set digital output 4 to low if the time is expired.
     if(Mo_2 <= esc_loop_timer)PORTD &= B11011111;    //Set digital output 5 to low if the time is expired.
     if(Mo_3 <= esc_loop_timer)PORTD &= B10111111;    //Set digital output 6 to low if the time is expired.
     if(Mo_4 <= esc_loop_timer)PORTD &= B01111111;    //Set digital output 7 to low if the time is expired.
   }
+
 }
+
+void SetAllEsc( uint32_t pulse) {
+  esc_1 = pulse;
+  esc_2 = pulse;
+  esc_3 = pulse;
+  esc_4 = pulse;
+
+  
+}
+
 
 // ========== FLIGHT CONTROLLER ==========
 void flight_controller() {
   // will Control what the signal from the receiver is and 
   //convert and forward it to the esc's
   
+  // === Flight controller variables ===
+// Corrected value for the ESC's --> ATM only translate the actions of the controller to actual flight for each motor.
+int cor_esc_1, cor_esc_2, cor_esc_3, cor_esc_4;
 
   // Throttle is channel_3, as it effects all motors.
-  esc_1 = receiver_channel_3; 
+  /*esc_1 = receiver_channel_3; 
   esc_2 = receiver_channel_3;
   esc_3 = receiver_channel_3;
-  esc_4 = receiver_channel_3;
+  esc_4 = receiver_channel_3;*/
+
+  SetAllEsc(receiver_channel_3); // throttle value.
   
   // === PITCH ===
   cor_esc_2 = receiver_channel_2 - 1500; // centre point of channel 2; + forward, - backwards
@@ -266,7 +383,7 @@ void flight_controller() {
     esc_2 += cor_esc_2;
     esc_4 += cor_esc_2;
   
-    if (esc_1 || esc_3 >= throttle_limit) { //if they greater then the limit of 80% power, decrease opposite side
+    if (esc_1 || esc_3 >= throttle_limit) { //if they greater then the power limit, decrease opposite side
       esc_1 -= cor_esc_2; 
       esc_3 -= cor_esc_2;
     }
@@ -279,7 +396,7 @@ void flight_controller() {
     esc_1 += abs(cor_esc_2);
     esc_3 += abs(cor_esc_2);
   
-  if (esc_2 || esc_4 >= throttle_limit) { // Restrict the Motors to 80% power
+  if (esc_2 || esc_4 >= throttle_limit) { // Restrict the Motors to max power
     esc_2 -= abs(cor_esc_2);
     esc_4 -= abs(cor_esc_2);
     }
@@ -310,7 +427,7 @@ void flight_controller() {
 
   // === YAW ===
   cor_esc_4 = receiver_channel_4 - 1500; // centre point of channel 4; - CCW YAW, + CW YAW 
-
+  int tol = 5;
   if (cor_esc_4 > 5) { // CW direction
     esc_2 += cor_esc_4; //*** CHECK THIS DIRECTIONS CANT REMEMBER WHAT WAY MOTORS ROTATE - ATM assuming motors 2 and 3 rotate CW
     esc_3 += cor_esc_4; //*** CHECK THIS DIRECTIONS CANT REMEMBER WHAT WAY MOTORS ROTATE
@@ -321,7 +438,7 @@ void flight_controller() {
       esc_4 -= cor_esc_4;
     }
   
-  } else if (cor_esc_4 < -5) {
+  } else if (cor_esc_4 < -tol) {
     esc_1 += abs(cor_esc_4); //*** CHECK THESE DIRECTIONS CANT REMEMBER WHAT WAY MOTORS ROTATE - ATM assuming motors 2 and 3 rotate CCW
     esc_4 += abs(cor_esc_4); //*** CHECK THESE DIRECTIONS CANT REMEMBER WHAT WAY MOTORS ROTATE
 
@@ -342,7 +459,7 @@ void flight_controller() {
   if (esc_3 > throttle_limit)esc_3 = throttle_limit;
   if (esc_4 > throttle_limit)esc_4 = throttle_limit;
 
-  
+  // Probbaly can push this up to 1100
   if (esc_1 < 1030)esc_1 = 1030; // LOW RPM can cause problems with the motors.
   if (esc_2 < 1030)esc_2 = 1030;  // Motors will shutter at really low rpm. Looks and sounds bad.
   if (esc_3 < 1030)esc_3 = 1030;
@@ -351,43 +468,45 @@ void flight_controller() {
   pulse_width();
 }
 
+void KillSwitch (int throttle) {
+  
+    
+}
+
+
 // ============ MAIN LOOP ============
 void loop()
 {
-  
-  //print_signals(); // Prints each Channels pulse length value to the serial
-  //pulse_width(); // produces a pulse for each esc with a value range of 1000 --> 2000 
+    
   flight_controller(); // Control each motor 
- 
 
-  // === Characteristics of SWA ( two way switch ) ===
+  // === Characteristics of SWA ( two way switch )  KILL SWITCH===
 
-  if (receiver_channel_5 > 1800) { // Down positon --> ****** Kill Motors 0% ******
+  while (receiver_channel_5 > 1700 || Rearm == 1 || MotorsKilled == 1) { // Down positon --> ****** Kill Motors 0% ******
+
+    SetAllEsc(1000); // Set all Motors to 0%.
+    pulse_width();
     
-    PCICR &= B00001111;                                                         // Disables inturrupts on receiver channels - Pins 8, 9, 10,11
-    killed = 1;
-    while (receiver_channel_5 > 1800) {                                         // The 980us is because th delay function takes time to excecute. so the 980us == 1000us theoretically.
-        // This will kleep talking to the esc - should be enough to keep them turned on
-        PORTD |= B11110000;                                                     //Set digital poort 4, 5, 6 and 7 high.
-        delayMicroseconds(980);                                                //Wait 980us. -> should be enough to keep the esc's tunred on, But keep motors off.
-        PORTD &= B00001111;                                                     //Set digital poort 4, 5, 6 and 7 low.
-        delay(3);                                                                //Wait 3ms before the next loop.
+    MotorsKilled = 1;
+
+    //receiver_channel_3 += 1;
+    //Serial.println(receiver_channel_3);
+    //Serial.println("  \n");
+    //delayMicroseconds(36428);
+
+    int* VAR = &receiver_channel_3;
+
+    
+    if (*VAR < 1050) { //throttle is less then 5%
+        Rearm = 1;
+        if (receiver_channel_5 < 1200) { // SWA is now in the up position.
+            MotorsKilled = 0;
+            Rearm = 0;
+        }    
     }
-    
-    // This is ensure that the throttle is back down to zero when motors are re-armed. SO THAT I CANT BE A NOOB AGAIN.
-    // ***** CHECK THIS WORKS ***** 
-    // Note: Hopefully this doesnt turn the motors. even if the motors twitch it should be ok! 
-    
-    PCICR |= B00100000;         // Enables inturrupts on receiver channel 3 - Pins 10 - throttle channel.
-    Rearm = receiver_channel_3; // the throttle value. -> shouldnt make thme esc's more as the check for the channel should be so short.
-    PCICR &= B00001111;         // Disables inturrupts on receiver channels - Pins 8, 9, 10, 11
-
-    //if (receiver_channel_5 < 1000 && receiever_channel < 1100) { // SWA is now in the down position. && throttle is less then 10%
-    PCICR |= B11110000;         // Enables inturrupts on receiver channels - Pins 8, 9, 10,11
-    killed = 0;
-    //}
   }
 
+  
 }
 
 

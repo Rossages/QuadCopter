@@ -37,7 +37,7 @@ Im not a 100% sure how these are set!
  TODO: GET THE ACCELEROMETER WORKING 
  
  */
-/*
+
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
 // for both classes must be in the include path of your project
 #include "I2Cdev.h"
@@ -77,7 +77,6 @@ uint16_t fifoCount;     // count of all bytes currently in FIFO
 uint8_t fifoBuffer[64]; // FIFO storage buffer
 #define BUF_SIZE 60
 //static circBuf_t g_inBuffer;
-*/
 
 // orientation/motion vars
 Quaternion q;           // [w, x, y, z]         quaternion container
@@ -134,7 +133,7 @@ void dmpDataReady() {
 // ===                      INITIAL SETUP                       ===
 // ================================================================
 
-//void setup() {
+void setup() {
  
     // join I2C bus (I2Cdev library doesn't do this automatically)
     
@@ -143,7 +142,7 @@ void dmpDataReady() {
     if not, that code is removed from the copy of the file given to the compiler prior 
     to compilation (but it has no effect on the original source code file). */
     
-    /*#if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+    #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
         Wire.begin();
         TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
     #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
@@ -200,7 +199,7 @@ void dmpDataReady() {
     pinMode(LED_PIN, OUTPUT);
     
     //initCircBuf(&g_inBuffer, BUF_SIZE);
-}*/
+}
 
 
 void Measure_MPU() // This function will take all the measurements from the MPU6050 chip.
@@ -272,8 +271,8 @@ void Measure_MPU() // This function will take all the measurements from the MPU6
 // ===                    MAIN PROGRAM LOOP                     ===
 // ================================================================
 
-//void loop() {
-void ImuCal(){   
+void loop() {
+ 
 
     Measure_MPU(); // Make current measurement from Gyro
        
