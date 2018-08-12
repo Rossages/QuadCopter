@@ -1,11 +1,10 @@
 /*
-    THIS CAN PROBABLY BE USED TO CALIBRATE ANY ESC'S THROTTLE 
-   
+ 
    Date: 10 July 2017
    Ross Oliver
 
    Individual motor control --> NOT the flight controller module.
-   This is for testing purposes only.
+  \
 
    used in conjunction with reveiver_code1.0.
 
@@ -409,7 +408,7 @@ void loop()
         delay(3);                                                                //Wait 3ms before the next loop.
     }
     
-    PCICR |= B11110000;         // Enables inturrupts on receiver channels - Pins 8, 9, 10,11
+    PCICR |= B11110000;         // ReEnables inturrupts on receiver channels - Pins 8, 9, 10,11
     killed = 0;
   }
  
